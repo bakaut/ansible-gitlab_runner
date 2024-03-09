@@ -17,7 +17,7 @@
     name: '{{ gitlab_runner__user }}'
     group: '{{ gitlab_runner__group }}'
     groups: '{{ gitlab_runner__additional_groups | map(attribute="name") | list | join(",") }}'
-    append: True
+    append: true
     home: '{{ gitlab_runner__home }}'
     system: '{{ gitlab_runner__system | bool }}'
     comment: '{{ gitlab_runner__comment }}'
@@ -26,6 +26,9 @@
     generate_ssh_key: '{{ gitlab_runner__ssh_generate | bool }}'
     ssh_key_bits: '{{ gitlab_runner__ssh_generate_bits }}'
     skeleton: null
+
+- name: Install gitlab-runner apt repository
+  shell: curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh" | sudo bash
 
 - name: Remove '~/.bash_logout' to avoid conflicts with the shell runner
   file:
@@ -36,7 +39,7 @@
   user:
     name: '{{ gitlab_runner__user }}'
     groups: 'docker'
-    append: True
+    append: true
   when: (ansible_local|d() and ansible_local.docker_server|d() and
          (ansible_local.docker_server.installed|d()) | bool)
 
@@ -59,10 +62,10 @@
 
 - name: Make sure APT can access HTTPS repositories
   apt:
-    name: [ 'apt-transport-https', 'openssl', 'ca-certificates' ]
+    name: ['apt-transport-https', 'openssl', 'ca-certificates']
     state: 'present'
-    install_recommends: False
-    update_cache: True
+    install_recommends: false
+    update_cache: true
     cache_valid_time: '{{ ansible_local.core.cache_valid_time|d("86400") }}'
   register: gitlab_runner__register_apt_https
   until: gitlab_runner__register_apt_https is succeeded
@@ -72,7 +75,7 @@
     name: "{{ query('flattened', gitlab_runner__base_packages +
                                  gitlab_runner__packages) }}"
     state: 'present'
-    install_recommends: False
+    install_recommends: false
   register: gitlab_runner__register_packages
   until: gitlab_runner__register_packages is succeeded
 
@@ -81,8 +84,8 @@
     url: '{{ gitlab_runner__api_url }}'
   register: gitlab_runner__register_api
   when: gitlab_runner__api_url|d() and gitlab_runner__api_url
-  failed_when: False
-  no_log: True
+  failed_when: false
+  # no_log: true
 
 - name: Register new GitLab Runners
   uri:
@@ -131,8 +134,8 @@
   when: (gitlab_runner__register_api.status|d() and gitlab_runner__register_api.status == 200 and
          gitlab_runner__api_token and item.0.name|d() and item.1.name|d() and item.0.name == item.1.name and
          (item.0.state|d() and item.0.state == 'absent'))
-  failed_when: False
-  no_log: True
+  failed_when: false
+  no_log: true
 
 - name: Get the SSH key from the remote host
   slurp:
@@ -147,7 +150,7 @@
     state: 'present'
     key_options: '{{ item.options | d() }}'
   delegate_to: '{{ item.host }}'
-  become: '{{ item.become | d(True) }}'
+  become: '{{ item.become | d(true) }}'
   with_items: '{{ gitlab_runner__ssh_install_to }}'
   when: gitlab_runner__ssh_generate|bool and item.user|d() and item.host|d()
 
@@ -167,7 +170,7 @@
     owner: '{{ gitlab_runner__user }}'
     group: '{{ gitlab_runner__group }}'
     mode: '0644'
-    force: False
+    force: false
   when: gitlab_runner__ssh_known_hosts|d()
 
 - name: Get list of already scanned host fingerprints
@@ -178,20 +181,20 @@
   with_items: '{{ gitlab_runner__ssh_known_hosts }}'
   when: gitlab_runner__ssh_known_hosts|d()
   register: gitlab_runner__register_known_hosts
-  changed_when: False
-  failed_when: False
-  check_mode: False
+  changed_when: false
+  failed_when: false
+  check_mode: false
 
 - name: Scan SSH fingerprints of specified hosts
   shell: 'ssh-keyscan -H -T 10 {{ item.item }} >> {{ gitlab_runner__home + "/.ssh/known_hosts" }}'
   with_items: '{{ gitlab_runner__register_known_hosts.results }}'
   when: gitlab_runner__ssh_known_hosts and item is defined and item.rc > 0
-  failed_when: False
+  failed_when: false
 
 - name: Configure Vagrant libvirt access
   user:
     name: '{{ gitlab_runner__user }}'
-    append: True
+    append: true
     groups: '{{ ([ (ansible_local.libvirtd.unix_sock_group
                     if (ansible_local.libvirtd.unix_sock_group|d())
                     else "libvirt") ]
@@ -216,8 +219,8 @@
   command: find /usr/share/rubygems-integration/all/gems -maxdepth 1 -type d -name 'vagrant-libvirt-*'
   register: gitlab_runner__register_libvirt_source
   when: gitlab_runner__vagrant_libvirt_patch|bool
-  changed_when: False
-  check_mode: False
+  changed_when: false
+  check_mode: false
   tags: [ 'role::gitlab_runner:patch' ]
 
 - name: Patch 'vagrant-libvirt' source code
